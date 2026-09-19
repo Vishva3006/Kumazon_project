@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<title>My orders: Bench Supply</title>
+</head>
+<body>
+<header id="site-header"></header>
+
+<main class="page page--mid">
+  <h1>My orders</h1>
+  <div id="banner"></div>
+  <div id="orders"></div>
+</main>
+
+<script src="/js/app.js"></script>
+<script>
+(async function () {
+  const user = await initPage({ requireLogin: true });
+  if (!user) return;
+
+  const placed = Number(new URLSearchParams(location.search).get('placed')) || null;
+  if (placed) {
+    document.getElementById('banner').innerHTML =
+      '<p class="msg msg--ok">Order #' + placed + ' is placed. Thanks, ' + esc(user.name.split(' ')[0]) + '.</p>';
+  }
+
+  const orders = await api('/api/orders');
+  const root = document.getElementById('orders');
+  if (!orders.length) {
+    root.innerHTML = '<div class="empty">You have not placed any orders yet.<br><a class="btn" href="/index.html">Browse parts</a></div>';
+    return;
+  }
+
+  root.innerHTML = orders.map(o =>
+    '<article class="order' + (o.id === placed ? ' order--new' : '') + '">' +
+      '<div class="order__head">' +
+        '<div><strong>Order #' + o.id + '</strong><br><span class="line__sub">' + esc(o.created_at) + ' UTC</span></div>' +
+        '<div><span class="status">' + esc(o.status.charAt(0).toUpperCase() + o.status.slice(1)) + '</span><br>' +
+          '<span class="price">' + money(o.total_cents) + '</span></div>' +
+      '</div>' +
+      '<div class="order__body">' +
+        o.items.map(i =>
+          '<div class="order__item"><span>' + i.quantity + ' × ' + esc(i.name) + '</span><span class="num">' + money(i.unit_price_cents * i.quantity) + '</span></div>'
+        ).join('') +
+        '<p class="line__sub" style="margin:12px 0 0">Ships to ' + esc(o.shipping_name) + ', ' + esc(o.shipping_address) + ', ' + esc(o.shipping_city) + ' ' + esc(o.shipping_zip) + '</p>' +
+      '</div>' +
+    '</article>'
+  ).join('');
+})().catch(err => {
+  document.getElementById('orders').innerHTML = '<p class="msg">' + esc(err.message) + '</p>';
+});
+</script>
+</body>
+</html>

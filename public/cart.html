@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<title>Your cart:  Supply</title>
+</head>
+<body>
+<header id="site-header"></header>
+
+<main class="page page--mid">
+  <h1>Your cart</h1>
+  <div id="cart"></div>
+</main>
+
+<script src="/js/app.js"></script>
+<script>
+(async function () {
+  const user = await initPage();
+  const root = document.getElementById('cart');
+
+  async function render() {
+    const cart = Cart.get();
+    if (!cart.length) {
+      root.innerHTML = '<div class="empty">Your cart is empty.<br><a class="btn" href="/index.html">Browse parts</a></div>';
+      return;
+    }
+
+    // Fetch current prices and stock from the server.
+    const products = await api('/api/products/lookup', { method: 'POST', body: { ids: cart.map(i => i.productId) } });
+    const byId = new Map(products.map(p => [p.id, p]));
+
+    // Drop items that no longer exist; cap quantities to stock.
+    let changed = false;
+    for (const line of Cart.get()) {
+      const p = byId.get(line.productId);
+      if (!p) { Cart.remove(line.productId); changed = true; }
+      else if (p.stock > 0 && line.quantity > p.stock) { Cart.setQty(line.productId, p.stock); changed = true; }
+    }
+    if (changed) return render();
+
+    let subtotal = 0;
+    let blocked = false;
+    const rows = Cart.get().map(line => {
+      const p = byId.get(line.productId);
+      const outOfStock = p.stock === 0;
+      if (outOfStock) blocked = true;
+      else subtotal += p.price_cents * line.quantity;
+      return '<div class="line">' +
+        '<div class="line__art">' + partArt(p.category) + '</div>' +
+        '<div>' +
+          '<a class="line__name" href="/product.html?id=' + p.id + '">' + esc(p.name) + '</a>' +
+          '<div class="line__sub">' + money(p.price_cents) + ' each · ' + (outOfStock ? '<span class="stock--low">Out of stock. Remove it to check out.</span>' : p.stock + ' available') + '</div>' +
+          '<button class="link-btn" data-remove="' + p.id + '">Remove</button>' +
+        '</div>' +
+        (outOfStock ? '<div></div>' :
+          '<div class="qty" role="group" aria-label="Quantity for ' + esc(p.name) + '">' +
+            '<button type="button" data-dec="' + p.id + '" aria-label="Decrease quantity">−</button>' +
+            '<output>' + line.quantity + '</output>' +
+            '<button type="button" data-inc="' + p.id + '" aria-label="Increase quantity">+</button>' +
+          '</div>') +
+        '<div class="line__total">' + (outOfStock ? '' : money(p.price_cents * line.quantity)) + '</div>' +
+      '</div>';
+    }).join('');
+
+    root.innerHTML =
+      '<div class="lines">' + rows + '</div>' +
+      '<div class="summary">' +
+        '<div class="summary__row summary__row--total"><span>Subtotal</span><span class="num">' + money(subtotal) + '</span></div>' +
+        '<p class="line__sub" style="margin:0">Shipping is free on every order.</p>' +
+        '<button class="btn" id="checkout"' + (blocked ? ' disabled' : '') + '>Check out</button>' +
+      '</div>';
+
+    root.querySelectorAll('[data-remove]').forEach(b => b.onclick = () => { Cart.remove(Number(b.dataset.remove)); render(); });
+    root.querySelectorAll('[data-inc]').forEach(b => b.onclick = () => {
+      const id = Number(b.dataset.inc);
+      const line = Cart.get().find(i => i.productId === id);
+      if (line.quantity >= byId.get(id).stock) { toast('Only ' + byId.get(id).stock + ' available'); return; }
+      Cart.setQty(id, line.quantity + 1); render();
+    });
+    root.querySelectorAll('[data-dec]').forEach(b => b.onclick = () => {
+      const id = Number(b.dataset.dec);
+      const line = Cart.get().find(i => i.productId === id);
+      Cart.setQty(id, line.quantity - 1); render();
+    });
+    document.getElementById('checkout').onclick = () => {
+      location.href = user ? '/checkout.html' : '/login.html?next=' + encodeURIComponent('/checkout.html');
+    };
+  }
+
+  render().catch(err => { root.innerHTML = '<p class="msg">' + esc(err.message) + '</p>'; });
+})();
+</script>
+</body>
+</html>

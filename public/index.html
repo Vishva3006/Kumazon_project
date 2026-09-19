@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<title>Kumazon: electronic products</title>
+</head>
+<body>
+<header id="site-header"></header>
+
+<main class="page">
+  <h1 id="heading">Parts for your next build</h1>
+  <p class="lede">Boards, sensors, motors and wiring for prototypes and classroom projects.</p>
+
+  <div class="shop">
+    <aside class="drawer" aria-label="Categories">
+      <h2>Categories</h2>
+      <ul id="categories"></ul>
+    </aside>
+    <section aria-live="polite">
+      <p class="result-line" id="result-line"></p>
+      <div class="grid" id="grid"></div>
+    </section>
+  </div>
+</main>
+
+<script src="/js/app.js"></script>
+<script>
+(async function () {
+  await initPage();
+
+  const params = new URLSearchParams(location.search);
+  const search = params.get('search') || '';
+  const category = params.get('category') || '';
+
+  // Categories
+  const cats = await api('/api/products/categories');
+  const total = cats.reduce((n, c) => n + c.count, 0);
+  const link = (label, count, href, active) =>
+    '<li><a href="' + href + '"' + (active ? ' aria-current="true"' : '') + '><span>' + esc(label) +
+    '</span><span class="count">' + count + '</span></a></li>';
+  document.getElementById('categories').innerHTML =
+    link('All parts', total, '/index.html', !category) +
+    cats.map(c => link(c.category, c.count, '/index.html?category=' + encodeURIComponent(c.category), c.category === category)).join('');
+
+  // Products
+  const qs = new URLSearchParams();
+  if (search) qs.set('search', search);
+  if (category) qs.set('category', category);
+  const products = await api('/api/products?' + qs);
+
+  if (search) document.getElementById('heading').textContent = 'Results for “' + search + '”';
+  else if (category) document.getElementById('heading').textContent = category;
+
+  document.getElementById('result-line').textContent =
+    products.length + (products.length === 1 ? ' product' : ' products');
+
+  const grid = document.getElementById('grid');
+  if (!products.length) {
+    grid.innerHTML = '<div class="empty" style="grid-column:1/-1">No parts match that search.<br><a class="btn" href="/index.html">Browse all parts</a></div>';
+    return;
+  }
+  grid.innerHTML = products.map(p =>
+    '<a class="tile" href="/product.html?id=' + p.id + '">' +
+      '<div class="tile__art">' + partArt(p.category) + '</div>' +
+      '<p class="tile__name">' + esc(p.name) + '</p>' +
+      '<div class="tile__meta"><span class="price">' + money(p.price_cents) + '</span>' + stockLabel(p.stock) + '</div>' +
+    '</a>'
+  ).join('');
+})().catch(err => {
+  document.getElementById('grid').innerHTML = '<p class="msg">' + esc(err.message) + '</p>';
+});
+</script>
+</body>
+</html>

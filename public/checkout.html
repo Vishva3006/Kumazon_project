@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<title>Checkout: Bench Supply</title>
+</head>
+<body>
+<header id="site-header"></header>
+
+<main class="page page--mid">
+  <h1>Checkout</h1>
+  <div class="checkout" id="checkout" hidden>
+    <form class="form" id="form" novalidate>
+      <h2>Shipping details</h2>
+      <div class="field"><label for="name">Full name</label><input id="name" name="name" autocomplete="name" required></div>
+      <div class="field"><label for="address">Street address</label><input id="address" name="address" autocomplete="street-address" required></div>
+      <div class="row">
+        <div class="field"><label for="city">City</label><input id="city" name="city" autocomplete="address-level2" required></div>
+        <div class="field"><label for="zip">Postal code</label><input id="zip" name="zip" autocomplete="postal-code" required></div>
+      </div>
+      <p class="msg" id="error" role="alert" hidden></p>
+      <button class="btn" type="submit" id="place">Place order</button>
+      <p class="hint" style="color:var(--muted);font-size:.9rem;margin:0">This is a demo store. No payment is taken.</p>
+    </form>
+    <aside class="panel" aria-label="Order summary">
+      <h2>Order summary</h2>
+      <div id="summary"></div>
+    </aside>
+  </div>
+  <div id="empty" class="empty" hidden>Your cart is empty.<br><a class="btn" href="/index.html">Browse parts</a></div>
+</main>
+
+<script src="/js/app.js"></script>
+<script>
+(async function () {
+  const user = await initPage({ requireLogin: true });
+  if (!user) return;
+
+  const cart = Cart.get();
+  if (!cart.length) { document.getElementById('empty').hidden = false; return; }
+
+  const products = await api('/api/products/lookup', { method: 'POST', body: { ids: cart.map(i => i.productId) } });
+  const byId = new Map(products.map(p => [p.id, p]));
+
+  let total = 0;
+  document.getElementById('summary').innerHTML = cart.map(line => {
+    const p = byId.get(line.productId);
+    if (!p) return '';
+    total += p.price_cents * line.quantity;
+    return '<div class="line"><span>' + line.quantity + ' × ' + esc(p.name) + '</span><span class="num">' + money(p.price_cents * line.quantity) + '</span></div>';
+  }).join('') +
+  '<div class="summary__row summary__row--total" style="margin-top:12px"><span>Total</span><span class="num">' + money(total) + '</span></div>';
+
+  document.getElementById('name').value = user.name;
+  document.getElementById('checkout').hidden = false;
+
+  const form = document.getElementById('form');
+  const errorBox = document.getElementById('error');
+  const btn = document.getElementById('place');
+
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    errorBox.hidden = true;
+    btn.disabled = true;
+    btn.textContent = 'Placing order…';
+    const f = new FormData(form);
+    try {
+      const order = await api('/api/orders', {
+        method: 'POST',
+        body: {
+          items: Cart.get(),
+          shipping: { name: f.get('name'), address: f.get('address'), city: f.get('city'), zip: f.get('zip') }
+        }
+      });
+      Cart.clear();
+      location.href = '/orders.html?placed=' + order.id;
+    } catch (err) {
+      if (err.status === 401) { location.href = '/login.html?next=/checkout.html'; return; }
+      errorBox.textContent = err.message + (err.status === 409 ? ' Update your cart and try again.' : '');
+      errorBox.hidden = false;
+      btn.disabled = false;
+      btn.textContent = 'Place order';
+    }
+  });
+})();
+</script>
+</body>
+</html>

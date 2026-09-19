@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<title>Product: Bench Supply</title>
+</head>
+<body>
+<header id="site-header"></header>
+
+<main class="page" id="main">
+  <p class="empty">Loading…</p>
+</main>
+
+<script src="/js/app.js"></script>
+<script>
+(async function () {
+  await initPage();
+  const id = Number(new URLSearchParams(location.search).get('id'));
+  const main = document.getElementById('main');
+
+  let p;
+  try {
+    p = await api('/api/products/' + id);
+  } catch (err) {
+    main.innerHTML = '<div class="empty">' + esc(err.message) +
+      '<br><a class="btn" href="/index.html">Browse all parts</a></div>';
+    return;
+  }
+
+  document.title = p.name + ': Bench Supply';
+  const inStock = p.stock > 0;
+
+  main.innerHTML =
+    '<nav class="crumbs"><a href="/index.html">All parts</a> / ' +
+      '<a href="/index.html?category=' + encodeURIComponent(p.category) + '">' + esc(p.category) + '</a></nav>' +
+    '<div class="detail">' +
+      '<div class="detail__art">' + partArt(p.category) + '</div>' +
+      '<div>' +
+        '<h1>' + esc(p.name) + '</h1>' +
+        '<p class="detail__price">' + money(p.price_cents) + '</p>' +
+        '<p>' + stockLabel(p.stock) + '</p>' +
+        '<p style="max-width:52ch">' + esc(p.description) + '</p>' +
+        (inStock
+          ? '<div class="buy">' +
+              '<div class="qty" role="group" aria-label="Quantity">' +
+                '<button type="button" id="minus" aria-label="Decrease quantity">−</button>' +
+                '<output id="qty" aria-live="polite">1</output>' +
+                '<button type="button" id="plus" aria-label="Increase quantity">+</button>' +
+              '</div>' +
+              '<button class="btn" type="button" id="add">Add to cart</button>' +
+            '</div>' +
+            '<p><a href="/cart.html">Go to cart</a></p>'
+          : '<div class="buy"><button class="btn" disabled>Out of stock</button></div>') +
+      '</div>' +
+    '</div>';
+
+  if (!inStock) return;
+
+  let qty = 1;
+  const out = document.getElementById('qty');
+  const max = Math.min(p.stock, 99);
+  document.getElementById('minus').onclick = () => { qty = Math.max(1, qty - 1); out.textContent = qty; };
+  document.getElementById('plus').onclick = () => { qty = Math.min(max, qty + 1); out.textContent = qty; };
+  document.getElementById('add').onclick = () => {
+    const already = (Cart.get().find(i => i.productId === p.id) || {}).quantity || 0;
+    if (already + qty > p.stock) {
+      toast('You already have ' + already + ' in your cart. Only ' + p.stock + ' available.');
+      return;
+    }
+    Cart.add(p.id, qty);
+    toast('Added ' + qty + ' × ' + p.name + ' to your cart');
+  };
+})();
+</script>
+</body>
+</html>
