@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Simple e-commerce store: Express.js + SQLite + vanilla JS frontend",
   "main": "server.js",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",

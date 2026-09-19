@@ -13,7 +13,7 @@ A small online store for electronics parts. Express.js backend, SQLite database,
 
 ## Run it
 
-Requires Node.js 18 or newer.
+Requires Node.js 22 LTS. The native SQLite dependency is pinned to this runtime for deployment compatibility.
 
 ```bash
 npm install
