@@ -1,4 +1,4 @@
-# Bench Supply: simple e-commerce store
+# Kumazon: simple e-commerce store
 
 A small online store for electronics parts. Express.js backend, SQLite database, plain HTML/CSS/JavaScript frontend.
 
@@ -21,6 +21,12 @@ npm start
 ```
 
 Open http://localhost:3000. The database file (`store.db`) and 16 sample products are created on first start.
+
+## Deploy on Render
+
+This repository includes [`render.yaml`](./render.yaml) for Render deployment. Create a new Blueprint from this repository in the Render dashboard and select the `main` branch. The configuration creates a Node web service with a persistent disk for SQLite and generates a session secret automatically.
+
+The persistent disk uses `DATA_DIR` so the database survives service restarts and deploys.
 
 Useful options:
 
